@@ -34,7 +34,7 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        pip install mypy
+        pip install mypy types-requests
         mypy src --ignore-missing-imports
 
     - name: Run tests
