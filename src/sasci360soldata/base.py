@@ -242,7 +242,8 @@ class CI360DataBase:
             bool: True if connection is valid
         """
         try:
-            # Basic health check endpoint
+            # Basic health check endpoint; config.host is validated non-None in __init__
+            assert self.config.host is not None
             health_url = urljoin(self.config.host, "/health")
             headers = self.get_auth_headers()
 
@@ -306,6 +307,7 @@ class CI360DataBase:
             if not self._connected:
                 raise CI360DataConnectionError("No active connection to CI360 service")
 
+        assert self.config.host is not None  # validated non-None in __init__
         url = urljoin(self.config.host + self.config.api_base, endpoint.lstrip('/'))
         headers = self.get_auth_headers()
 
