@@ -5,7 +5,4 @@ saspy>=5.0.0
 schedule>=1.1.0
 DateTime>=4.3
 urllib3>=2.0.0
-
-# sasci360apimarketingdata and sasci360apicore are internal SAS CI360 API
-# packages, not published on public PyPI. Install them from your SAS CI360
-# environment's package source before using this module.
+sasci360apicore @ git+https://github.com/mnelson3/sas_ci360_api_core.git@main
