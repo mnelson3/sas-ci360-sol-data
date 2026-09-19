@@ -2,6 +2,8 @@
 
 ## SAS 360 SOLUTIONS - Data Module
 
+> **Status: canonical.** This is the actively maintained client for the Marketing Data API.
+
 This repository provides Python interfaces for SAS Customer Intelligence 360 Data Management and Marketing Data APIs.
 
 ### Overview
