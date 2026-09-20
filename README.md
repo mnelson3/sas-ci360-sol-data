@@ -210,6 +210,30 @@ for segment in segments:
     print(f"Segment: {segment['name']} - Size: {segment['count']}")
 ```
 
+#### Import Request Jobs, File Transfer, and Tables
+```python
+from sasci360soldata.base import CI360DataBase
+
+client = CI360DataBase()
+
+# 1. Get a signed URL and upload a local file to it
+transfer = client.create_file_transfer_location()
+client.upload_to_signed_url(transfer['signedURL'], '/path/to/export.csv')
+
+# 2. Create an import request job against a customer table (data descriptor)
+payload = {'dataDescriptorId': 'my-table-id', 'fileLocation': transfer['signedURL']}
+job = client.create_import_request_job(payload)
+
+# 3. Poll import request jobs for status (e.g. filtered to one table)
+jobs = client.get_import_request_jobs(data_descriptor_id='my-table-id')
+job_detail = client.get_import_request_job(job['id'])
+print(job_detail['statusInfo']['importValidation']['status'])
+
+# Table metadata
+tables = client.get_tables(name='identityBridge')
+table = client.get_table(tables['items'][0]['id'])
+```
+
 ### Error Handling
 
 #### Exception Types
