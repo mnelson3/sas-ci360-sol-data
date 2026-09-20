@@ -660,6 +660,240 @@ class CI360DataBase:
         }
         return self._make_request("PUT", "/schema", data=payload)
 
+    # Import Request Job APIs
+
+    async def get_import_request_jobs_async(
+        self,
+        start: int = 0,
+        limit: int = 999,
+        data_descriptor_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Retrieve a summary of import request jobs asynchronously.
+
+        Args:
+            start: First item to return
+            limit: Maximum number of items to return
+            data_descriptor_id: Optional ID of the data descriptor (customer table)
+                to filter import requests by
+
+        Returns:
+            Dict containing a summary of import request jobs
+        """
+        params: Dict[str, Any] = {"start": start, "limit": limit}
+        if data_descriptor_id:
+            params["dataDescriptorId"] = data_descriptor_id
+
+        return await self._make_request_async("GET", "/importRequestJobs", params=params)
+
+    def get_import_request_jobs(
+        self,
+        start: int = 0,
+        limit: int = 999,
+        data_descriptor_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Retrieve a summary of import request jobs synchronously."""
+        params: Dict[str, Any] = {"start": start, "limit": limit}
+        if data_descriptor_id:
+            params["dataDescriptorId"] = data_descriptor_id
+
+        return self._make_request("GET", "/importRequestJobs", params=params)
+
+    async def create_import_request_job_async(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create and run an import request job asynchronously.
+
+        Args:
+            payload: JSON body describing the import request job. The import
+                request processes a file previously uploaded to a temporary
+                URL obtained from create_file_transfer_location.
+
+        Returns:
+            Dict containing the created import request job
+        """
+        return await self._make_request_async("POST", "/importRequestJobs", data=payload)
+
+    def create_import_request_job(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Create and run an import request job synchronously."""
+        return self._make_request("POST", "/importRequestJobs", data=payload)
+
+    async def get_import_request_job_async(self, import_request_job_id: str) -> Dict[str, Any]:
+        """
+        Retrieve a specific import request job asynchronously.
+
+        Args:
+            import_request_job_id: Unique ID of the import request job
+
+        Returns:
+            Dict containing the import request job, including its
+            importValidation/dataProcessing/identityProcessing status
+        """
+        if not import_request_job_id:
+            raise CI360DataValidationError("import_request_job_id is required")
+
+        return await self._make_request_async("GET", f"/importRequestJobs/{import_request_job_id}")
+
+    def get_import_request_job(self, import_request_job_id: str) -> Dict[str, Any]:
+        """Retrieve a specific import request job synchronously."""
+        if not import_request_job_id:
+            raise CI360DataValidationError("import_request_job_id is required")
+
+        return self._make_request("GET", f"/importRequestJobs/{import_request_job_id}")
+
+    # File Transfer Location APIs
+
+    async def create_file_transfer_location_async(self) -> Dict[str, Any]:
+        """
+        Create a signed URL for uploading a file asynchronously.
+
+        Returns:
+            Dict containing a signedURL to upload a file directly to a
+            temporary cloud storage location.
+        """
+        return await self._make_request_async("POST", "/fileTransferLocation")
+
+    def create_file_transfer_location(self) -> Dict[str, Any]:
+        """Create a signed URL for uploading a file synchronously."""
+        return self._make_request("POST", "/fileTransferLocation")
+
+    async def upload_to_signed_url_async(self, signed_url: str, file_path: str) -> bool:
+        """
+        Upload a local file's contents to a signed URL asynchronously.
+
+        The signed URL returned by create_file_transfer_location is
+        pre-authenticated by CI360 itself; it is uploaded to directly,
+        outside of this client's host/api_base and without CI360 auth
+        headers.
+
+        Args:
+            signed_url: The signedURL obtained from create_file_transfer_location
+            file_path: Path to the local file to upload
+
+        Returns:
+            True if the upload succeeded
+
+        Raises:
+            CI360DataConnectionError: If the upload fails
+        """
+        try:
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.session.put(
+                    signed_url,
+                    data=file_bytes,
+                    timeout=self.config.timeout
+                )
+            )
+            response.raise_for_status()
+            return True
+        except (OSError, requests.exceptions.RequestException) as e:
+            raise CI360DataConnectionError(f"Failed to upload file to signed URL: {e}")
+
+    def upload_to_signed_url(self, signed_url: str, file_path: str) -> bool:
+        """Upload a local file's contents to a signed URL synchronously."""
+        return asyncio.run(self.upload_to_signed_url_async(signed_url, file_path))
+
+    # Table APIs
+
+    async def get_tables_async(
+        self,
+        start: int = 0,
+        limit: int = 100,
+        name: Optional[str] = None,
+        type: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Retrieve a summary of tables asynchronously.
+
+        Args:
+            start: First item to return
+            limit: Maximum number of items to return
+            name: Optional exact table name to filter by
+            type: Optional table type to filter by
+
+        Returns:
+            Dict containing a summary of existing tables
+        """
+        params: Dict[str, Any] = {"start": start, "limit": limit}
+        if name:
+            params["name"] = name
+        if type:
+            params["type"] = type
+
+        return await self._make_request_async("GET", "/tables", params=params)
+
+    def get_tables(
+        self,
+        start: int = 0,
+        limit: int = 100,
+        name: Optional[str] = None,
+        type: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Retrieve a summary of tables synchronously."""
+        params: Dict[str, Any] = {"start": start, "limit": limit}
+        if name:
+            params["name"] = name
+        if type:
+            params["type"] = type
+
+        return self._make_request("GET", "/tables", params=params)
+
+    async def get_table_async(self, table_id: str) -> Dict[str, Any]:
+        """Retrieve a table by ID asynchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        return await self._make_request_async("GET", f"/tables/{table_id}")
+
+    def get_table(self, table_id: str) -> Dict[str, Any]:
+        """Retrieve a table by ID synchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        return self._make_request("GET", f"/tables/{table_id}")
+
+    async def create_table_async(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a customer table asynchronously."""
+        return await self._make_request_async("POST", "/tableJobs", data=payload)
+
+    def create_table(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a customer table synchronously."""
+        return self._make_request("POST", "/tableJobs", data=payload)
+
+    async def update_table_async(self, table_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a table by ID asynchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        return await self._make_request_async("PATCH", f"/tableJobs/{table_id}", data=payload)
+
+    def update_table(self, table_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a table by ID synchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        return self._make_request("PATCH", f"/tableJobs/{table_id}", data=payload)
+
+    async def delete_table_async(self, table_id: str) -> bool:
+        """Delete a table by ID asynchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        await self._make_request_async("DELETE", f"/tables/{table_id}")
+        return True
+
+    def delete_table(self, table_id: str) -> bool:
+        """Delete a table by ID synchronously."""
+        if not table_id:
+            raise CI360DataValidationError("table_id is required")
+
+        self._make_request("DELETE", f"/tables/{table_id}")
+        return True
+
     def __enter__(self):
         """Context manager entry."""
         if not self.validate_connection():
