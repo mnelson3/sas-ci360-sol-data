@@ -400,6 +400,201 @@ class TestCI360DataErrorHandling(unittest.TestCase):
         with self.assertRaises(CI360DataAuthError):
             asyncio.run(client.get_customers_async())
 
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_get_import_request_jobs_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async import request job listing."""
+        mock_request.return_value = {"items": [], "count": 0}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.get_import_request_jobs_async(start=0, limit=999, data_descriptor_id="abc-123"))
+
+        self.assertEqual(result, {"items": [], "count": 0})
+        mock_request.assert_called_once_with(
+            "GET", "/importRequestJobs",
+            params={"start": 0, "limit": 999, "dataDescriptorId": "abc-123"}
+        )
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_get_import_request_jobs_async_no_filter(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async import request job listing without a data_descriptor_id filter."""
+        mock_request.return_value = {"items": [], "count": 0}
+
+        client = CI360DataBase(self.config)
+        asyncio.run(client.get_import_request_jobs_async())
+
+        mock_request.assert_called_once_with(
+            "GET", "/importRequestJobs",
+            params={"start": 0, "limit": 999}
+        )
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_create_import_request_job_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async import request job creation."""
+        payload = {"dataDescriptorId": "abc-123", "fileLocation": "https://example.com/signed"}
+        mock_request.return_value = {"id": "job-1", **payload}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.create_import_request_job_async(payload))
+
+        self.assertEqual(result, {"id": "job-1", **payload})
+        mock_request.assert_called_once_with("POST", "/importRequestJobs", data=payload)
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_get_import_request_job_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async single import request job retrieval."""
+        mock_request.return_value = {"id": "job-1", "dataDescriptorId": "abc-123"}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.get_import_request_job_async("job-1"))
+
+        self.assertEqual(result, {"id": "job-1", "dataDescriptorId": "abc-123"})
+        mock_request.assert_called_once_with("GET", "/importRequestJobs/job-1")
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    def test_get_import_request_job_missing_id(self, mock_encryption_class, mock_session_class):
+        """Test that a missing import_request_job_id raises validation error."""
+        client = CI360DataBase(self.config)
+
+        with self.assertRaises(CI360DataError):
+            asyncio.run(client.get_import_request_job_async(""))
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_create_file_transfer_location_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async file transfer location creation."""
+        mock_request.return_value = {"signedURL": "https://example.com/signed-upload"}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.create_file_transfer_location_async())
+
+        self.assertEqual(result, {"signedURL": "https://example.com/signed-upload"})
+        mock_request.assert_called_once_with("POST", "/fileTransferLocation")
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    def test_upload_to_signed_url_async(self, mock_encryption_class, mock_session_class):
+        """Test uploading a file to a signed URL."""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_session = Mock()
+        mock_session.put.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = CI360DataBase(self.config)
+
+        with patch("builtins.open", unittest.mock.mock_open(read_data=b"col1,col2\n1,2\n")):
+            result = asyncio.run(client.upload_to_signed_url_async("https://example.com/signed-upload", "/tmp/export.csv"))
+
+        self.assertTrue(result)
+        mock_session.put.assert_called_once()
+        call_args = mock_session.put.call_args
+        self.assertEqual(call_args[0][0], "https://example.com/signed-upload")
+        self.assertEqual(call_args[1]["data"], b"col1,col2\n1,2\n")
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    def test_upload_to_signed_url_async_failure(self, mock_encryption_class, mock_session_class):
+        """Test that a failed upload raises CI360DataConnectionError."""
+        from sasci360soldata.base import CI360DataConnectionError
+        mock_session = Mock()
+        mock_session.put.side_effect = OSError("disk read failed")
+        mock_session_class.return_value = mock_session
+
+        client = CI360DataBase(self.config)
+
+        with patch("builtins.open", unittest.mock.mock_open(read_data=b"data")):
+            with self.assertRaises(CI360DataConnectionError):
+                asyncio.run(client.upload_to_signed_url_async("https://example.com/signed-upload", "/tmp/export.csv"))
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_get_tables_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async table listing."""
+        mock_request.return_value = {"items": [], "count": 0}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.get_tables_async(start=0, limit=100, name="identityBridge"))
+
+        self.assertEqual(result, {"items": [], "count": 0})
+        mock_request.assert_called_once_with(
+            "GET", "/tables",
+            params={"start": 0, "limit": 100, "name": "identityBridge"}
+        )
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_get_table_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async single table retrieval."""
+        mock_request.return_value = {"id": "table-1", "name": "identityBridge"}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.get_table_async("table-1"))
+
+        self.assertEqual(result, {"id": "table-1", "name": "identityBridge"})
+        mock_request.assert_called_once_with("GET", "/tables/table-1")
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_create_table_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async table creation."""
+        payload = {"name": "newTable", "columns": []}
+        mock_request.return_value = {"id": "table-2", **payload}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.create_table_async(payload))
+
+        self.assertEqual(result, {"id": "table-2", **payload})
+        mock_request.assert_called_once_with("POST", "/tableJobs", data=payload)
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_update_table_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async table update."""
+        payload = {"name": "renamedTable"}
+        mock_request.return_value = {"id": "table-1", **payload}
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.update_table_async("table-1", payload))
+
+        self.assertEqual(result["name"], "renamedTable")
+        mock_request.assert_called_once_with("PATCH", "/tableJobs/table-1", data=payload)
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    @patch('sasci360soldata.base.CI360DataBase._make_request_async')
+    def test_delete_table_async(self, mock_request, mock_encryption_class, mock_session_class):
+        """Test async table deletion."""
+        mock_request.return_value = None
+
+        client = CI360DataBase(self.config)
+        result = asyncio.run(client.delete_table_async("table-1"))
+
+        self.assertTrue(result)
+        mock_request.assert_called_once_with("DELETE", "/tables/table-1")
+
+    @patch('sasci360soldata.base.requests.Session')
+    @patch('sasci360soldata.base.Encryption')
+    def test_delete_table_missing_id(self, mock_encryption_class, mock_session_class):
+        """Test that a missing table_id raises validation error."""
+        client = CI360DataBase(self.config)
+
+        with self.assertRaises(CI360DataError):
+            asyncio.run(client.delete_table_async(""))
+
 
 if __name__ == '__main__':
     unittest.main()
