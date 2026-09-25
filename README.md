@@ -2,9 +2,7 @@
 
 ## SAS 360 SOLUTIONS - Data Module
 
-> **Status: canonical.** This is the actively maintained client for the Marketing Data API.
-
-This repository provides Python interfaces for SAS Customer Intelligence 360 Data Management and Marketing Data APIs.
+> **Status: archived.** This repository is retained as a historical reference and is no longer actively developed. It provides Python interfaces for SAS Customer Intelligence 360 Data Management and Marketing Data APIs.
 
 ### Overview
 
@@ -28,8 +26,8 @@ The Data module enables programmatic access to CI360's data management capabilit
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-org/sas-ci360-sol-data.git
-   cd sas-ci360-sol-data
+   git clone https://github.com/mnelson3/sas-ci360-sol-data-archived.git
+   cd sas-ci360-sol-data-archived
    ```
 
 2. Install dependencies:
